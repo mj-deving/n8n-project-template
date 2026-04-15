@@ -39,5 +39,35 @@ bd sync               # End session — persist state for next agent
 
 - **Push filename only**: `npx --yes n8nac push workflow.ts` — no paths
 - **Init required**: Must run `npx --yes n8nac init` before pull/push
+- **Auth header**: n8n API uses `X-N8N-API-KEY` header, NOT `Authorization: Bearer`
 - **Session end**: Always run `bd sync` then `git push` — Landing the Plane protocol
 - **Never leave unpushed work** — work isn't done until `git push` succeeds
+
+## n8n Code Node Sandbox (CRITICAL)
+
+n8n Code nodes run in a restricted sandbox. These rules apply to ALL Code nodes and toolCode:
+
+- **No `require('fs')`** — blocked. No filesystem access
+- **No `require('http')`** — blocked
+- **No `fetch()`** — not available in sandbox
+- **Only `this.helpers.httpRequest()`** works for HTTP calls
+- **`query` with `specifyInputSchema: true`** — `query` is an object `{query: "..."}`, access via `query.query`
+- **Sibling tool args** — use `args ?? {}` not `args || {}` (falsy primitives are valid)
+- **Persistence** — use `$getWorkflowStaticData('global')` or workflow data flow, never filesystem
+
+## n8n Error Classification
+
+`n8nac test` classifies failures into three types:
+
+| Class | Exit | Action |
+|---|---|---|
+| **Class A — Config gap** | 0 | Missing credentials/model. Inform user, do NOT re-edit code |
+| **Runtime state** | 0 | Webhook not armed. Fix state, NOT code |
+| **Class B — Wiring error** | 1 | Bad expression/field. Fix `.workflow.ts`, push, re-test |
+
+## LLM Cost Control
+
+- **Never use Sonnet** for n8n agents — too expensive. Use Haiku ($0.80/$4 per 1M tokens)
+- **Gemini + n8n tools = broken** — Gemini 2.0/2.5 Flash sends null tool arguments. Use Claude Haiku
+- **OpenRouter model IDs**: `anthropic/claude-haiku-4-5` works. `anthropic/claude-3.5-sonnet` is dead
+- **lmChatOpenAi typeVersion 1** accepts plain string model IDs. **Version 1.3** requires `{mode: 'list', value: 'model-id'}`
